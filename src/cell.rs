@@ -1,7 +1,8 @@
-use fasthash::{HasherExt, Murmur3HasherExt as ElmHasher};
+use fasthash::MetroHasher as ElmHasher;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::ops::{Add, BitXor, BitXorAssign, Deref, Sub, SubAssign};
 
 /// Which side of the IBF is this from
@@ -57,7 +58,7 @@ where
         + Debug,
 {
     id_sum: T,
-    hash_sum: u128,
+    hash_sum: u64,
     count: i32,
 }
 impl<T> Cell<T>
@@ -76,7 +77,7 @@ where
         element.hash(&mut hasher);
 
         self.id_sum ^= element;
-        self.hash_sum ^= hasher.finish_ext();
+        self.hash_sum ^= hasher.finish();
         self.count += 1;
     }
 
@@ -84,7 +85,7 @@ where
         let mut hasher: ElmHasher = Default::default();
         self.id_sum.hash(&mut hasher);
 
-        (self.count == 1 || self.count == -1) && self.hash_sum == hasher.finish_ext()
+        (self.count == 1 || self.count == -1) && self.hash_sum == hasher.finish()
     }
 
     pub(crate) fn is_empty(&self) -> bool {

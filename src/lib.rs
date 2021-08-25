@@ -1,4 +1,4 @@
-//! Iron Rose is a rust implementation of Invertable Bloom Filters as found in
+//! Iron Rose is a rust implementation of Invertible Bloom Filters as found in
 //! [What's the Difference? Efficient Set Reconciliation without Prior Context](https://www.ics.uci.edu/~eppstein/pubs/EppGooUye-SIGCOMM-11.pdf)
 //!
 //! Expected use case looks something like this.

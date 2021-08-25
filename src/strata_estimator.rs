@@ -1,6 +1,7 @@
-use fasthash::{HasherExt, Murmur3HasherExt as ElmHasher};
+use fasthash::MetroHasher as ElmHasher;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use crate::IBF;
 
@@ -18,7 +19,7 @@ use crate::IBF;
 /// assert_eq!(se1.estimate_differences(&se2), Ok(100));
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StrataEstimator {
-    ibfs: Vec<IBF<u128>>,
+    ibfs: Vec<IBF<u64>>,
 }
 
 impl Default for StrataEstimator {
@@ -41,7 +42,7 @@ impl StrataEstimator {
     pub fn encode<T: Hash>(&mut self, element: T) {
         let mut hasher: ElmHasher = Default::default();
         element.hash(&mut hasher);
-        let new_elm = hasher.finish_ext();
+        let new_elm = hasher.finish();
         let trailing = new_elm.trailing_zeros();
         let len = self.ibfs.len();
         self.ibfs[(trailing as usize % len)].encode(new_elm);

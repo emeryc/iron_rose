@@ -1,6 +1,7 @@
 use crate::{cell::Cell, Side};
-use fasthash::{HasherExt, Murmur3HasherExt as ElmHasher};
+use fasthash::MetroHasher as ElmHasher;
 use serde::{Deserialize, Serialize};
+use std::hash::Hasher;
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -8,7 +9,7 @@ use std::{
     ops::{BitXor, BitXorAssign, Sub},
 };
 
-/// Core Invertable Bloom Filter Data Structure. This allows us to store and differentially retreive
+/// Core Invertible Bloom Filter Data Structure. This allows us to store and differentially retreive
 /// a set of u128s, provided that the two IBFs have enough information in them. This is a
 /// raw building block, and is useful for passing around IDs.
 /// ```rust
@@ -111,7 +112,7 @@ where
         element.hash(&mut hasher);
         i.hash(&mut hasher);
 
-        let cell_idx = (hasher.finish_ext() % (self.size as u128)) as usize;
+        let cell_idx = (hasher.finish() % (self.size as u64)) as usize;
         &mut self.cells[cell_idx]
     }
 }
