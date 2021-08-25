@@ -1,5 +1,6 @@
-use fasthash::metro::hash64;
+use fasthash::{HasherExt, Murmur3HasherExt as ElmHasher};
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 
 use crate::IBF;
 
@@ -14,10 +15,10 @@ use crate::IBF;
 ///    se1.encode(i);
 ///    se2.encode(i + 25);
 /// }
-/// assert_eq!(se1.estimate_differences(&se2), Ok(72));
+/// assert_eq!(se1.estimate_differences(&se2), Ok(100));
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StrataEstimator {
-    ibfs: Vec<IBF>,
+    ibfs: Vec<IBF<u128>>,
 }
 
 impl Default for StrataEstimator {
@@ -37,10 +38,13 @@ impl StrataEstimator {
 
     /// Encodes an element into the strata estimator that will eventually to determine the size of
     /// differences between two sets
-    pub fn encode(&mut self, element: u128) {
-        let trailing = hash64(element.to_be_bytes()).trailing_zeros();
+    pub fn encode<T: Hash>(&mut self, element: T) {
+        let mut hasher: ElmHasher = Default::default();
+        element.hash(&mut hasher);
+        let new_elm = hasher.finish_ext();
+        let trailing = new_elm.trailing_zeros();
         let len = self.ibfs.len();
-        self.ibfs[(trailing as usize % len)].encode(element);
+        self.ibfs[(trailing as usize % len)].encode(new_elm);
     }
 
     /// Given another strata estimator, how big of an IBF should you make to successfully
@@ -62,7 +66,7 @@ impl StrataEstimator {
             }
         }
 
-        Ok(count)
+        Ok(count * 2)
     }
 }
 

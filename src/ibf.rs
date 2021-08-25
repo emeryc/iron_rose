@@ -1,8 +1,12 @@
-use std::{collections::HashSet, ops::Sub};
-
 use crate::{cell::Cell, Side};
-use fasthash::murmur2::hash64;
+use fasthash::{HasherExt, Murmur3HasherExt as ElmHasher};
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashSet,
+    fmt::Debug,
+    hash::Hash,
+    ops::{BitXor, BitXorAssign, Sub},
+};
 
 /// Core Invertable Bloom Filter Data Structure. This allows us to store and differentially retreive
 /// a set of u128s, provided that the two IBFs have enough information in them. This is a
@@ -20,13 +24,33 @@ use serde::{Deserialize, Serialize};
 /// assert!(set.contains(&Side::Right(42)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IBF {
-    cells: Box<[Cell]>,
+pub struct IBF<T>
+where
+    T: Clone
+        + std::hash::Hash
+        + BitXor<Output = T>
+        + BitXorAssign
+        + Default
+        + PartialEq
+        + Eq
+        + Debug,
+{
+    cells: Box<[Cell<T>]>,
     hash_count: usize,
     size: usize,
 }
 
-impl IBF {
+impl<T> IBF<T>
+where
+    T: Clone
+        + std::hash::Hash
+        + BitXor<Output = T>
+        + BitXorAssign
+        + Default
+        + PartialEq
+        + Eq
+        + Debug,
+{
     /// New IBF, limited to having size number of buckets, and a default hash_count of 3 (as per the paper)
     pub fn new(size: usize) -> Self {
         Self::new_with_hash_count(size, 3)
@@ -43,20 +67,20 @@ impl IBF {
     }
 
     /// Encodes an element into hash_count # of buckets for future retreival
-    pub fn encode(&mut self, element: u128) {
+    pub fn encode(&mut self, element: T) {
         for i in 0..self.hash_count {
-            self.get_ith_cell(i, element).encode(element)
+            self.get_ith_cell(i, &element).encode(element.clone())
         }
     }
 
     /// Allows you to decode an IBF into a [HashSet](HashSet) of [Sides](Side). Each side tells
     /// You from which original IBF the data came from (After a subtraction). Returns an Err
     /// In the case that we don't have enough information to fully decode the IBF.
-    pub fn decode(mut self) -> Result<HashSet<Side>, String> {
+    pub fn decode(mut self) -> Result<HashSet<Side<T>>, String> {
         let mut set = HashSet::new();
         loop {
             if let Some(next_pure) = self.cells.iter().find(|cell| cell.is_pure()) {
-                let next_pure = *next_pure;
+                let next_pure = next_pure.clone();
                 let element = next_pure.decode().expect("Only grabbing pure elements");
                 set.insert(element);
                 self.remove(next_pure);
@@ -75,22 +99,35 @@ impl IBF {
         }
     }
 
-    fn remove(&mut self, cell: Cell) {
-        let element = *cell.decode().expect("Only removing pure cells");
+    fn remove(&mut self, cell: Cell<T>) {
+        let element = &*cell.decode().expect("Only removing pure cells");
         for i in 0..self.hash_count {
-            *self.get_ith_cell(i, element) -= cell;
+            *self.get_ith_cell(i, &element) -= cell.clone();
         }
     }
 
-    fn get_ith_cell(&mut self, i: usize, element: u128) -> &mut Cell {
-        let cell_idx =
-            (hash64((element.wrapping_add(i as u128)).to_be_bytes()) % (self.size as u64)) as usize;
+    fn get_ith_cell(&mut self, i: usize, element: &T) -> &mut Cell<T> {
+        let mut hasher: ElmHasher = Default::default();
+        element.hash(&mut hasher);
+        i.hash(&mut hasher);
+
+        let cell_idx = (hasher.finish_ext() % (self.size as u128)) as usize;
         &mut self.cells[cell_idx]
     }
 }
 
-impl Sub for IBF {
-    type Output = Result<IBF, String>;
+impl<T> Sub for IBF<T>
+where
+    T: Clone
+        + std::hash::Hash
+        + BitXor<Output = T>
+        + BitXorAssign
+        + Default
+        + PartialEq
+        + Eq
+        + Debug,
+{
+    type Output = Result<IBF<T>, String>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self.hash_count != rhs.hash_count || self.size != rhs.size {
@@ -108,8 +145,18 @@ impl Sub for IBF {
     }
 }
 
-impl Sub for &IBF {
-    type Output = Result<IBF, String>;
+impl<T> Sub for &IBF<T>
+where
+    T: Clone
+        + std::hash::Hash
+        + BitXor<Output = T>
+        + BitXorAssign
+        + Default
+        + PartialEq
+        + Eq
+        + Debug,
+{
+    type Output = Result<IBF<T>, String>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self.hash_count != rhs.hash_count || self.size != rhs.size {
