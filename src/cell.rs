@@ -56,7 +56,6 @@ where
         + Eq
         + Debug,
 {
-    // Are my sums the right size?
     id_sum: T,
     hash_sum: u128,
     count: i32,
