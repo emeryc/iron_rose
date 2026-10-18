@@ -1,8 +1,8 @@
 [package]
 name = "iron_rose"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Chris Emery <chris@menageriehouse.net>"]
-edition = "2018"
+edition = "2021"
 description = "Rust implementation of Invertible Bloom Filters & Strata Estimators as found in https://www.ics.uci.edu/~eppstein/pubs/EppGooUye-SIGCOMM-11.pdf"
 license = "MIT"
 repository = "https://github.com/emeryc/iron_rose.git/"
@@ -11,12 +11,18 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fasthash = "0.4.0"
-serde = {version = "1.0.125", features = ["derive"]}
+serde = { version = "1.0.229", features = ["derive"] }
+siphasher = "1"
 
 [dev-dependencies]
-criterion = "0.3"
-uuid = {version = "0.8", features = ["v4"]}
+proptest = "1.12.0"
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+
+# criterion builds C code (via alloca), which breaks Miri cross-target runs such as the
+# big-endian check in src/hash.rs. It's only needed for benches.
+[target.'cfg(not(miri))'.dev-dependencies]
+criterion = "0.8"
 
 [[bench]]
 name = "ibf_bench"
